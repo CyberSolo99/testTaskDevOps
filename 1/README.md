@@ -1,7 +1,5 @@
 # Ansible Playbook для базовой настройки и установки PostgreSQL 16 на Debian 11
 
-```markdown
-
 Этот Ansible Playbook предназначен для автоматизации базовой конфигурации системы Debian 11 и установки PostgreSQL 16, а также настройки необходимых утилит и служб для обеспечения безопасности.
 
 ## Содержание
@@ -20,6 +18,7 @@
 ## Установка
 
 1. Клонируйте репозиторий с Playbook на вашу локальную машину или сервер:
+
 ```bash
 git clone https://github.com/CyberSolo99/testTaskDevOps.git
 cd testTaskDevOps
@@ -32,6 +31,8 @@ ansible --version
     ```
 
 3. Измените данные для подключения к Debian 11 в файле **inventory.yml**.
+
+```
 
 ## Запуск
 
