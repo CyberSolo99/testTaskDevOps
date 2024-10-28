@@ -22,17 +22,15 @@
 ```bash
 git clone https://github.com/CyberSolo99/testTaskDevOps.git
 cd testTaskDevOps
-    ```
+```
 
 2. Убедитесь, что Ansible установлен:
 
 ```bash
 ansible --version
-    ```
+```
 
 3. Измените данные для подключения к Debian 11 в файле **inventory.yml**.
-
-```
 
 ## Запуск
 
