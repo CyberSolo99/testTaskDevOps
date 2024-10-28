@@ -1,0 +1,9 @@
+all:
+  hosts:
+    leshanu:
+      ansible_user: sergei
+      ansible_ssh_pass: 1234
+      ansible_host: 192.168.137.173
+      ansible_become: yes 
+      ansible_become_pass: 1234
+      

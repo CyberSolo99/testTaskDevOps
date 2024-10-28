@@ -1,0 +1,194 @@
+- name: Basic configuration and PostgreSQL 16 setup on Debian 11
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install packages
+      apt:
+        name:
+          - git
+          - python3
+          - python3-pip
+          - rsyslog    
+          - iptables
+          - apache2
+          - fail2ban
+          - htop
+          - vim
+          - cron
+        state: present
+
+    - name: Ensure rsyslog is started and enabled
+      systemd:
+        name: rsyslog
+        state: started
+        enabled: true
+
+    - name: Flush existing iptables rules
+      command: iptables -F
+
+    - name: Allow HTTP connections on port 80
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 80
+        jump: ACCEPT
+
+    - name: Allow HTTPS connections on port 443
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 443
+        jump: ACCEPT
+
+    - name: Allow custom port connections on port 9115
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 9115
+        jump: ACCEPT
+
+    - name: Ensure iptables-persistent is installed
+      apt:
+        name: iptables-persistent
+        state: present
+
+    - name: Install required utilities (curl and ca-certificates)
+      apt:
+        name: 
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: yes
+
+    - name: Create directory for PostgreSQL signing key
+      file:
+        path: /usr/share/postgresql-common/pgdg
+        state: directory
+        mode: '0755'
+
+    - name: Download PostgreSQL signing key
+      get_url:
+        url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+        dest: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+
+    - name: Add PostgreSQL APT repository for Debian 11
+      shell: |
+        echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+      args:
+        executable: /bin/bash
+
+    - name: Update apt package lists
+      apt:
+        update_cache: yes
+
+    - name: Install PostgreSQL 16
+      apt:
+        name: postgresql-16
+        state: present
+
+    - name: Ensure PostgreSQL is started and enabled
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    # Установка и настройка Fail2Ban для защиты от DDoS-атак
+    - name: Create Fail2Ban configuration for DDoS protection
+      copy:
+        dest: /etc/fail2ban/jail.d/ddos.conf
+        content: |
+          [apache-dos]
+          enabled  = true
+          port     = http,https
+          filter   = apache-dos
+          logpath  = /var/log/apache2/access.log
+          maxretry = 10
+          bantime  = 3600
+          findtime = 60
+
+    - name: Create Fail2Ban filter for DDoS
+      copy:
+        dest: /etc/fail2ban/filter.d/apache-dos.conf
+        content: |
+          [Definition]
+          failregex = ^<HOST> .*"(GET|POST).*HTTP.*" 200
+          ignoreregex = 
+
+    - name: Ensure Fail2Ban is started and enabled
+      systemd:
+        name: fail2ban
+        state: started
+        enabled: true
+
+    - name: Restart Fail2Ban to apply new configuration
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    # Сбор информации о состоянии системы
+    - name: Gather system information
+      shell: |
+        echo "=== System Information ===" > /var/log/system_info.txt
+        echo "Free disk space:" >> /var/log/system_info.txt
+        df -h >> /var/log/system_info.txt
+        echo "" >> /var/log/system_info.txt
+        echo "Running processes:" >> /var/log/system_info.txt
+        ps aux >> /var/log/system_info.txt
+        echo "" >> /var/log/system_info.txt
+        echo "Memory usage:" >> /var/log/system_info.txt
+        free -h >> /var/log/system_info.txt
+        echo "" >> /var/log/system_info.txt
+        echo "Operating System:" >> /var/log/system_info.txt
+        lsb_release -a >> /var/log/system_info.txt
+        echo "" >> /var/log/system_info.txt
+        echo "CPU load:" >> /var/log/system_info.txt
+        uptime >> /var/log/system_info.txt
+        echo "Top processes:" >> /var/log/system_info.txt
+        top -b -n 1 >> /var/log/system_info.txt
+      args:
+        executable: /bin/bash
+
+    - name: Create a cron job to update packages daily at 13:00
+      cron:
+        name: "Daily package update"
+        minute: "0"
+        hour: "13"
+        job: "/usr/bin/apt update"
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Docker GPG key
+      shell: curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+      args:
+        executable: /bin/bash  # использовать bash
+
+    - name: Get Debian version codename
+      command: lsb_release -cs
+      register: debian_codename
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ debian_codename.stdout }} stable"
+        state: present
+
+    - name: Update apt package lists
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Ensure Docker service is started and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: true
